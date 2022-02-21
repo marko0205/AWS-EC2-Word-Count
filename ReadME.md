@@ -6,45 +6,43 @@ This is a course project of "concurrent and parallel programming on the cloud" b
 
 The word count is the number of words in a document or passage of text. Word counting may be needed when a text is required to stay within specific numbers of words.
 
-Word count is commonly used by translators to determine the price of a translation job. Word counts may also be used to calculate measures of readability and to measure typing and reading speeds (usually in words per minute). When converting character counts to words, a measure of 5 or 6 characters to a word is generally used for English
-We will be doing a version of map-reduce using MPI to perform word counting over large number of files
+Word count is commonly used by translators to determine the price of a translation job. Word counts may also be used to calculate measures of readability and to measure typing and reading speeds (usually in words per minute). When converting character counts to words, a measure of 5 or 6 characters to a word is generally used for English We will be doing a version of map-reduce using MPI to perform word counting over large number of files
 
 
 ## Idea 💡
 
 There are four main steps for this program:
-- All the nodes read a directory and create a files's list, which every node is associated with the name of the file and its size expressed in byte and an offest setted at 0 (i'll talk about this later). 
-- The MASTER process calculates in equal parts, based on the files's size, which file and offset each process must begins to count. It then sends to each process the file_name, offset, number of byte to count. 
-- The SLAVES from the information received by the MASTER, scroll their local list of file and start to analyze the files, adding the words occurrencies into a Hash_map. Finally send the couple "word" - "value" to the MASTER. 
-- The MASTER analyze the rest (if any) of the division of job. Than receive all the slave Hash_map, merge it into it's local Hash_map and write a report file, where are listed all the occurrencies. 
+- All the nodes read a directory and create a files's list, which every node is associated with the name of the file and its size expressed in byte and an offset setted at 0 (i'll talk about this later).
+- The MASTER process calculates in equal parts, based on the files's size, which file and offset each process must begins to count. It then sends to each process the file_name, offset, number of byte to count.
+- The SLAVES from the information received by the MASTER, scroll their local list of file and start to analyze the files, adding the words occurrences into a Hash_map. Finally send the couple "word" - "value" to the MASTER.
+- The MASTER analyze the rest (if any) of the division of job. Then receive all the slave Hash_map, merge it into its local Hash_map and write a report file, where are listed all the occurrences.
 
 Detail: With one process all the work will be performed on the master, with two processes the work will be divided in half MASTER-SLAVE, from 3 processes onwards the MASTER will only take care of splitting the jobs and bringing together the results.
 
 
 
 ## **Road to Solution** (first approach)
-In the beginning the main idea was to split job for the SLAVES, by lines. This quick solution was figured out for resolve the problem of overlapping the words counted by the SLAVES, allowing to have a fairly correct division of jobs. This solution seems good at beginning on my local machine, the test done didn't give me very bad results. This view changed a lot into the AWS enviroment as you can see into the graph below
+In the beginning the main idea was to split job for the SLAVES, by lines. This quick solution was figured out for resolve the problem of overlapping the words counted by the SLAVES, allowing to have a fairly correct division of jobs. This solution seems good at beginning on my local machine. This view changed a lot into the AWS environment as you can see into the graph below
 
 ![](assets/First_ex_time.png)
 
-Those tests are done with different sizes of workload and using an incremental number of process togherer. The first test is done only with the MASTER process, counting all the word for than report them, into the second test are executed two process MASTER-SLAVE and so on adding always more SLAVES.
-As we can notice on the experiment with 4 process, the exectuion time have a significant decrease, which gradually slows down to the test with 14 processes. After that it remains in a fairly stationary situation, seemed the best speed-up this algoritm can do, but from the test with 20 process the program started to increase exponentially the exec. time, afther a bit of research, i figured out that the function pertinent at the count of the lines in each file for determine the "size" slowed down a lot the programm. 
+Those tests are done with different sizes of workload and using an incremental number of process together. The first test is done only with the MASTER process, counting all the word for then report them, into the second test are executed two process MASTER-SLAVE and so on adding always more SLAVES. As we can notice on the experiment with 4 process, the execution time have a significant decrease, which gradually slows down to the test with 14 processes. After that it remains in a fairly stationary situation, seemed the best speed-up this algorithm can do, but from the test with 20 process the program started to increase exponentially the exec. time, after a bit of research, i figured out that the function pertinent at the count of the lines in each file for determine the "size" slowed down a lot the program.
 
 
 ## **Final Solution** (second approach)
 
-Since I could not find a way to speed up the reading of the lines of a file significantly, i had to change approach. So I rewrote some functions and readaprt the program, in order to divide the work among the slaves based on the bytes of each file. Solving the problem of word overlapping, always making a process complete to read a word even if it finishes its part of the work. But at the same time each process starts counting the first word only when it encounters a white space, assuming that the previous process has already counted it, even if its offset is in the center of a word. 
+Since I could not find a way to speed up the reading of the lines of a file significantly, i had to change approach. So I rewrote some functions and readapt the program, in order to divide the work among the slaves based on the bytes of each file. Solving the problem of word overlapping, always making a process complete to read a word even if it finishes its part of the work. But at the same time each process starts counting the first word only when it encounters a white space, assuming that the previous process has already counted it, even if its offset is in the center of a word.
 
 ![](assets/Second_ex_time.png)
 
-I reported here the strong efficiency performance, as we can see this is not the optimal soliution but we have a considerable impovement on the execution time, rather than the first experiment.
+I reported the strong efficiency performance, as we can see this is not the optimal solution but we have a considerable improvement on the execution time, rather than the first experiment.
 
 
-Since I wasn't happy with the execution times found that the work-splitting method was not efficient enough as the processes increased. To check I re-run the tests without considering this part of code in the time count: 
+Since I wasn't happy with the execution times found that the work-splitting method was not efficient enough as the processes increased. To check I re-run the tests without considering this part of code in the time count:
 
 ![](assets/test_ex_time.png)
 
-Here the times remain on fairly low values even with 32 cores, increasing only slightly on the final experiments. This beacause with this approach each process must wait the master for receive the staring point and start to analyze the files. But i still haven't developed a new approach for solve this issue. 
+Here the times remain on fairly low values even with 32 cores, increasing only slightly on the final experiments. This because with this approach each process must wait the master for receive the staring point and then start to analyze the files. But i still haven't developed a new solution for solve this issue.
 
 
 ## Implementation Details
@@ -67,7 +65,7 @@ The first function to be launched scan the files in a folder /Files and for each
 ```c
 create_list_of_files_from_dir()
 ```
-For get the size of each file i created this functuon wich use the* fseek() *and *ftell()* for get the size in byte:
+For get the size of each file i created this function which use the*fseek()* and *ftell()* for get the size in byte:
 ```c
 	....
     f = fopen(address, "r");
@@ -80,7 +78,7 @@ For get the size of each file i created this functuon wich use the* fseek() *and
 ```
 In the first problem approach, this function scrolled through each character of the file to count lines ( '\n' ), slowing down the execution considerably.
 
-Then I wrote some helper functions, respectively for calculate total file size in bytes, clear file list and write a report file with the occurencies of each word
+Then I wrote some helper functions, respectively for calculate total file size in bytes, clear file list and write a report file with the occurrences of each word
 ```c
 long get_file_size(const char* filename)
 void free_list_of_files()
@@ -155,8 +153,8 @@ node *get_starting_point(long start, long part) {
     return head; // process starting point 
 }
 ```
-The second funtion, is used by the slaves, after the master splitted the work for each slave he will do an MPI_Send, passing the information for each worker (file from start analyzing and the chunk_size to analyze). This information will be passed to this function, where each process will scroll through its internal list of files to get to the starting point of the job.
-Finally it will analyze the files until the bytes counted are equal to the size of the job assigned by the master. 
+The second function, is used by the slaves, after the master split the work for each slave he will do an MPI_Send, passing the information for each worker (file from start analyzing and the chunk_size to analyze). This information will be passed to this function, where each process will scroll through its internal list of files to get to the starting point of the job. 
+Finally it will analyze the files until the bytes counted are equal to the size of the job assigned by the master.
 ```c
 void compute_word_frequency_slave(buffer_split_work *work) {
     FILE *F;
@@ -190,10 +188,9 @@ void compute_word_frequency_slave(buffer_split_work *work) {
     }
 } 
 ```
-A similar version will be used by the master, the only difference is that it will calculate at the moment where to start analyzing
+A similar version will be used by the master, the only difference is that it will calculate at the moment where to start analyzing.
 
-The third function, is a support function, used by a process if it does not start analyzing a file from the beginning.
-In fact, from the point of view in which every process finishes analyzing a word, even if it offeset has exceeded the characters it was supposed to analyze. A process that will continue the work, start analyzing from the first next word.
+The third function, is a support function, used by a process if it does not start analyzing a file from the beginning. In fact, from the point of view in which every process finishes analyzing a word, even if it offset has exceeded the characters it was supposed to analyze. A process that will continue the work, start analyzing from the first next word.
 ```c
 long prepare_to_count(FILE *F, long word_counted, long start, long part) {
     int ch = 0; 
@@ -238,8 +235,7 @@ The last function `count_words(F, word_counted, part);` is used for scan each ch
 	....
 ```
 ### **mpi_utils.c**
-The last file contain the support functions, which will use the MPI library. 
-First of all i've defined two differents MPI_Datatype, based on this two structures and all the data excanged will be sended in those formats. The first struct contain the word and the occurency of each, the second contain the information calculated by the MASTER for split the jobs equally.
+The last file contain the support functions, which will use the MPI library. First of all i've defined two different MPI_Datatype, based on this two structures and all the data exchanged will be sent in those formats. The first struct contain the word and the occurrence of each, the second contain the information calculated by the MASTER for split the jobs equally.
 ```c
 typedef struct buffer_frequency_list {
     char word[WORDLENGHT];
@@ -251,7 +247,7 @@ typedef struct buffer_split_work {
     char f_name[60];
 } ;
 ```
-The functions for sending`void master_split_work(buffer_split_work *send_work, int rank)`and receiving`void slave_receive_work()`jobs information are quite simple so I will leave out the description of these.
+The functions for sending `void master_split_work(buffer_split_work *send_work, int rank)` and receiving `void slave_receive_work()` jobs information are quite simple so I will leave out the description of these.
 
 The function launched by the slaves for send to the master the job done, perform a no-blocking *MPI_Isend()* for send the size of the array that the master must be ready to receive. Then store all the information of the local HashMap into an array and send it to the master with *MPI_Send()*
 ```c
@@ -274,7 +270,7 @@ The function launched by the slaves for send to the master the job done, perform
     free(send);  
 	...
 ```
-in a similar way, the MASTER receives information from each slave and iterate through the received array, updating the local hashtab, using the function below
+in a similar way, the MASTER receives information from each slave and iterate through the received array, updating the local hash-tab, using the function below
 ```c
 void reduce(buffer_frequency_list *send, int size) {
     //  scroll the array and add the items into the MASTER hashTab
@@ -292,7 +288,7 @@ The performance have been evaluated in terms of strong and weak scalability, whi
 
 ## Strong Efficiency
 
-The strong scalability tests showing runtimes have already been reported above. So i report here the strong efficiency (second aproach)
+The strong scalability tests showing runtimes have already been reported above. So i report here the strong efficiency (second approach)
 
 ![](assets/Second_S_efficiency.png)
 
@@ -301,7 +297,7 @@ The bar plot shows that the trend is acceptable till 18 cores, but of course for
 
 ## Weak scalability 
 
-Weak scalability tests show the behavior of the algorithm, where the scaled speedup is calculated based on the amount of work done for a scaled problem size. Overall, execution times seem not to vary too much over the graph showed above, where the efficiency remains above 20% up to 18-20 vCPU.
+Weak scalability tests show the behavior of the algorithm, where the scaled speedup is calculated based on the amount of work done for a scaled problem size. Overall, execution times seem not to vary too much over the graph showed above, where the efficiency remains above 20% up to 18-20 vCPU. (second approach)
 
 ![](assets/Second_weak.png)
 
@@ -322,7 +318,7 @@ mv word-count ..
 cd ..
 ```
 # How to run
-Now you can run with the following command (change the paramenter -np for increase or decrese the number of process)
+Now you can run with the following command (change the parameter -np for increase or decrease the number of process)
   ``` bash
   mpirun --allow-run-as-root -np 4 word-count
 ```
