@@ -275,7 +275,7 @@ The function launched by the slaves for send to the master the job done, perform
 	...
 ```
 in a similar way, the MASTER receives information from each slave and iterate through the received array, updating the local hashtab, using the function below
-``` 
+```c
 void reduce(buffer_frequency_list *send, int size) {
     //  scroll the array and add the items into the MASTER hashTab
     for (int i = 0; i < size ; i++) {
