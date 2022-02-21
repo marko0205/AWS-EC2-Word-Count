@@ -2,7 +2,7 @@
 
 This is a course project of "concurrent and parallel programming on the cloud" by university of Salerno.
 
-### Problem Statement
+## **Problem Statement**
 
 The word count is the number of words in a document or passage of text. Word counting may be needed when a text is required to stay within specific numbers of words.
 
@@ -10,7 +10,7 @@ Word count is commonly used by translators to determine the price of a translati
 We will be doing a version of map-reduce using MPI to perform word counting over large number of files
 
 
-#### Idea💡
+## Idea 💡
 
 There are four main steps for this program:
 - All the nodes read a directory and create a files's list, which every node is associated with the name of the file and its size expressed in byte and an offest setted at 0 (i'll talk about this later). 
@@ -22,26 +22,27 @@ Detail: With one process all the work will be performed on the master, with two 
 
 
 
-### Road to Solution (first approach)
+## **Road to Solution** (first approach)
 In the beginning the main idea was to split job for the SLAVES, by lines. This quick solution was figured out for resolve the problem of overlapping the words counted by the SLAVES, allowing to have a fairly correct division of jobs. This solution seems good at beginning on my local machine, the test done didn't give me very bad results. This view changed a lot into the AWS enviroment as you can see into the graph below
 
-## image here
+![](assets/First_ex_time.png)
 
 Those tests are done with different sizes of workload and using an incremental number of process togherer. The first test is done only with the MASTER process, counting all the word for than report them, into the second test are executed two process MASTER-SLAVE and so on adding always more SLAVES.
 As we can notice on the experiment with 4 process, the exectuion time have a significant decrease, which gradually slows down to the test with 14 processes. After that it remains in a fairly stationary situation, seemed the best speed-up this algoritm can do, but from the test with 20 process the program started to increase exponentially the exec. time, afther a bit of research, i figured out that the function pertinent at the count of the lines in each file for determine the "size" slowed down a lot the programm. 
 
 
-#### Final Solution (second approach)
+## **Final Solution** (second approach)
 
 Since I could not find a way to speed up the reading of the lines of a file significantly, i had to change approach. So I rewrote some functions and readaprt the program, in order to divide the work among the slaves based on the bytes of each file. Solving the problem of word overlapping, always making a process complete to read a word even if it finishes its part of the work. But at the same time each process starts counting the first word only when it encounters a white space, assuming that the previous process has already counted it, even if its offset is in the center of a word. 
 
-## image here 
+![](assets/Second_ex_time.png)
+
 I reported here the strong efficiency performance, as we can see this is not the optimal soliution but we have a considerable impovement on the execution time, rather than the first experiment.
 
 
 Since I wasn't happy with the execution times found that the work-splitting method was not efficient enough as the processes increased. To check I re-run the tests without considering this part of code in the time count: 
 
-## image here
+![](assets/test_ex_time.png)
 
 Here the times remain on fairly low values even with 32 cores, increasing only slightly on the final experiments. This beacause with this approach each process must wait the master for receive the staring point and start to analyze the files. But i still haven't developed a new approach for solve this issue. 
 
@@ -49,9 +50,9 @@ Here the times remain on fairly low values even with 32 cores, increasing only s
 ## Implementation Details
 To develop this software, it was chosen to use C as the programming language and the MPI (Message Passing Interface) library to work in distributed logic. From the following flow chart it is possible to highlight the main calculation steps that have allowed us to find a solution to the question posed. Subsequently the various points will be illustrated in detail.
 
-###imageHere
+![](assets/Arch1.png)
 
-###file_utils.c
+### **file_utils.c**
 Let's start from the methods for scan the directory of the files to read. In order to do this I've create a list of nodes:
 ```c
 typedef struct node {
@@ -86,7 +87,7 @@ void free_list_of_files()
 void build_report_file(float time, int rank)
 ```
 
-###frequency_list.c
+### **frequency_list.c**
 As a structure to store the count of occurrences I used a HashMap, in order to speed up the add, update and search operations, with time O(1) in the best case.
 ```c
 struct hashNode {
@@ -96,7 +97,8 @@ struct hashNode {
 };
 ```
 To manage the collisions I made sure that if a HashMap index was already used, it scrolls to the next, as show below.
-##imagehere
+
+![](assets/hsmp.png)
 
 To do this, the search function, after calculating the hash, will scroll through each node in that index, as if it were a list, comparing the characters in the 'word' field
 ```c
@@ -120,7 +122,7 @@ void insert_update(char *wrd, int val)
 ```
 
 
-###schedule.c
+### **schedule.c**
 This file contain the core functions for count the words and split jobs.
 
 The first function is used by the MASTER in order to calculate where each process must start to count. Take in input the starting point and the size to analyze and scrolls the list of files, entered previously, and will set the seek_line field, this indicates the offset where each process will start its job
@@ -235,7 +237,7 @@ The last function `count_words(F, word_counted, part);` is used for scan each ch
     }
 	....
 ```
-###mpi_utils.c
+### **mpi_utils.c**
 The last file contain the support functions, which will use the MPI library. 
 First of all i've defined two differents MPI_Datatype, based on this two structures and all the data excanged will be sended in those formats. The first struct contain the word and the occurency of each, the second contain the information calculated by the MASTER for split the jobs equally.
 ```c
@@ -282,7 +284,28 @@ void reduce(buffer_frequency_list *send, int size) {
 }
 ```
 
-## Requirements
+
+# Benchmark
+The solution has been tested over (up to) 4 AWS EC2 t2.2xlarge (8 vCPU machines) using in input 3 books in txt format and duplicated in order to increase the input size. 
+
+The performance have been evaluated in terms of strong and weak scalability, which means using an increasing number of processors over a fixed input and using an increasing number of processors with the load-per-processor fixed respectively.
+
+## Strong Efficiency
+
+The strong scalability tests showing runtimes have already been reported above. So i report here the strong efficiency (second aproach)
+
+![](assets/Second_S_efficiency.png)
+
+The bar plot shows that the trend is acceptable till 18 cores, but of course for a small input size, the efficiency is not good (this is because is not convenient to use so much processors for a small input size) afterwards, the efficiency remains quite low.
+
+
+## Weak scalability 
+
+Weak scalability tests show the behavior of the algorithm, where the scaled speedup is calculated based on the amount of work done for a scaled problem size. Overall, execution times seem not to vary too much over the graph showed above, where the efficiency remains above 20% up to 18-20 vCPU.
+
+![](assets/Second_weak.png)
+
+# Requirements
 
 In oder to replicate this experiments you need to install CMake and of course the MPI library
   ``` bash
@@ -298,7 +321,7 @@ make
 mv word-count ..
 cd ..
 ```
-## How to run
+# How to run
 Now you can run with the following command (change the paramenter -np for increase or decrese the number of process)
   ``` bash
   mpirun --allow-run-as-root -np 4 word-count
@@ -329,20 +352,5 @@ scalciando           -           6
 ```
 
 
-## Benchmark
-The solution has been tested over (up to) 4 AWS EC2 t2.2xlarge (8 vCPU machines) using in input 3 books in txt format and duplicated in order to increase the input size. 
 
-The performance have been evaluated in terms of strong and weak scalability, which means using an increasing number of processors over a fixed input and using an increasing number of processors with the load-per-processor fixed respectively.
-
-### Strong Efficiency
-
-The strong scalability tests showing runtimes have already been reported above. So i report here the strong efficiency (second aproach)
-
-## image here
-
-The bar plot shows that the trend is acceptable till 18 cores, but of course for a small input size, the efficiency is not good (this is because is not convenient to use so much processors for a small input size) afterwards, the efficiency remains quite low.
-
-
-### Weak scalability 
-Weak scalability tests show the behavior of the algorithm, where the scaled speedup is calculated based on the amount of work done for a scaled problem size. Overall, execution times seem not to vary too much over the graph showed above, where the efficiency remains above 20% up to 18-20 vCPU.
 
