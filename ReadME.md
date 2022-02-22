@@ -141,7 +141,7 @@ node *get_starting_point(long start, long part) {
         while (curr != NULL && sectionSize <= sectionStart) {  
 
             sectionSize += curr->size;  
-            // if another process analyzed this, remove it from the section and update the head = starting poing
+            // if another process analyzed this, go to the next file and update the seek_line = starting offset
             if(sectionSize <= sectionStart) {   
                 start -= curr->size;       
                 head = curr->next;     
@@ -174,7 +174,7 @@ void compute_word_frequency_slave(buffer_split_work *work) {
         strcat(address, head->fname);  
 
         F = fopen(address, "r");
-        // set the seek to the starting point-1, for the first tile to read
+        // set the seek to the starting point, for the first tile to read
         if (firstFile) {
             fseek(F, work->start, SEEK_SET);
             firstFile = 0;
