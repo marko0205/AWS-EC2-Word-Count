@@ -46,7 +46,7 @@ Here the times remain on fairly low values even with 32 cores, increasing only s
 
 
 ## Implementation Details
-To develop this software, it was chosen to use C as the programming language and the MPI (Message Passing Interface) library to work in distributed logic. From the following flow chart it is possible to highlight the main calculation steps that have allowed us to find a solution to the question posed. Subsequently the various points will be illustrated in detail.
+To develop this software, it was chosen to use C as the programming language and the MPI (Message Passing Interface) library to work in distributed logic. From the following flow chart it is possible to highlight the main calculation steps that have allowed to find a solution to the question posed. Subsequently the various functions will be illustrated in detail.
 
 ![](assets/Arch1.png)
 
@@ -60,12 +60,11 @@ typedef struct node {
     struct node *next;
 };
 ```
-
-The first function to be launched scan the files in a folder /Files and for each file memorize the name, the size, and set a seek_line which will be filled later to calculate while the master calculate the chunks to analyze for each process 
+The first function to be launched scan the files in a folder /Files and for each file memorize the name, the size, and set a seek_line which will be filled later, while the master calculate the chunks to analyze for each process 
 ```c
 create_list_of_files_from_dir()
 ```
-For get the size of each file i created this function which use the*fseek()* and *ftell()* for get the size in byte:
+For get the size of each file i created this function which use the *fseek()* and *ftell()* for get the size in byte:
 ```c
 	....
     f = fopen(address, "r");
@@ -153,7 +152,7 @@ node *get_starting_point(long start, long part) {
     return head; // process starting point 
 }
 ```
-The second function, is used by the slaves, after the master split the work for each slave he will do an MPI_Send, passing the information for each worker (file from start analyzing and the chunk_size to analyze). This information will be passed to this function, where each process will scroll through its internal list of files to get to the starting point of the job. 
+The second function, is used by the slaves, after the master split the work for each slave he will do an MPI_Send, passing the information for each worker (the file from the process must start to analyze and the size to analyze). This information will be passed to this function, where each process will scroll through its internal list of files to get to the starting point of the job. 
 Finally it will analyze the files until the bytes counted are equal to the size of the job assigned by the master.
 ```c
 void compute_word_frequency_slave(buffer_split_work *work) {
@@ -190,7 +189,7 @@ void compute_word_frequency_slave(buffer_split_work *work) {
 ```
 A similar version will be used by the master, the only difference is that it will calculate at the moment where to start analyzing.
 
-The third function, is a support function, used by a process if it does not start analyzing a file from the beginning. In fact, from the point of view in which every process finishes analyzing a word, even if it offset has exceeded the characters it was supposed to analyze. A process that will continue the work, start analyzing from the first next word.
+The third function, is a support function, used by a process if it does not start analyzing a file from the beginning. In fact, from the point of view in which every process finishes analyzing a word, even if it offset has exceeded the characters it was supposed to analyze, a process that will continue the work, start analyzing from the first next word.
 ```c
 long prepare_to_count(FILE *F, long word_counted, long start, long part) {
     int ch = 0; 
@@ -209,7 +208,7 @@ long prepare_to_count(FILE *F, long word_counted, long start, long part) {
     return count_words(F, word_counted, part);
 }
 ```
-The last function `count_words(F, word_counted, part);` is used for scan each char in a file, and consider a word each sequence of at least 4 chars which contain only letter from A to Z, skipping symbol and numbers
+The last function `count_words(F, word_counted, part);` is used for scan each char in a file, and consider a word each sequence of at least 4 chars which contain only letter from A to Z, skipping symbol, numbers and accented letters
 ```c
 	...
     // do this unltil you read all the chars in the files && you didn't finish u're part of work || u're reading a word
